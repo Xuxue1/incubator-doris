@@ -40,7 +40,6 @@ import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.Tablet;
 import org.apache.doris.catalog.TabletInvertedIndex;
 import org.apache.doris.catalog.TabletMeta;
-import org.apache.doris.clone.Clone;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.DdlException;
 import org.apache.doris.common.ErrorCode;
@@ -474,16 +473,9 @@ public class RollupHandler extends AlterHandler {
 
         TabletInvertedIndex invertedIndex = Catalog.getCurrentInvertedIndex();
         AgentBatchTask batchTask = new AgentBatchTask();
-        final String cloneFailMsg = "rollup index[" + rollupIndexName + "] has been dropped";
         for (Partition partition : olapTable.getPartitions()) {
             MaterializedIndex rollupIndex = partition.getIndex(rollupIndexId);
             Preconditions.checkNotNull(rollupIndex);
-
-            // 1. remove clone job
-            Clone clone = Catalog.getInstance().getCloneInstance();
-            for (Tablet tablet : rollupIndex.getTablets()) {
-                clone.cancelCloneJob(tablet.getId(), cloneFailMsg);
-            }
 
             // 2. delete rollup index
             partition.deleteRollupIndex(rollupIndexId);
@@ -608,11 +600,13 @@ public class RollupHandler extends AlterHandler {
                     break;
                 }
                 case FINISHING: {
-                    // check if previous load job finished
+                    // check previous load job finished
                     if (rollupJob.isPreviousLoadFinished()) {
-                        // if all previous load jobs are finished, then send clear alter tasks to all related be
+                        // if all previous load job finished, then send clear alter tasks to all related be
+                        LOG.info("previous txn finished, try to send clear txn task");
                         int res = rollupJob.checkOrResendClearTasks();
                         if (res != 0) {
+                            LOG.info("send clear txn task return {}", res);
                             if (res == -1) {
                                 LOG.warn("rollup job is in finishing state, but could not finished, "
                                         + "just finish it, maybe a fatal error {}", rollupJob);

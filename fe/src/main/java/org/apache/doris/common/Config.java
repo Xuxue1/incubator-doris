@@ -349,8 +349,9 @@ public class Config extends ConfigBase {
     public static int pull_load_task_default_timeout_second = 14400; // 4 hour
 
     /*
-     * Default mini load timeout
+     * Default non-streaming mini load timeout
      */
+    @Deprecated
     @ConfField(mutable = true, masterOnly = true)
     public static int mini_load_default_timeout_second = 3600; // 1 hour
     
@@ -361,10 +362,10 @@ public class Config extends ConfigBase {
     public static int insert_load_default_timeout_second = 3600; // 1 hour
     
     /*
-     * Default stream load timeout
+     * Default stream load and streaming mini load timeout
      */
     @ConfField(mutable = true, masterOnly = true)
-    public static int stream_load_default_timeout_second = 300; // 300s
+    public static int stream_load_default_timeout_second = 600; // 300s
 
     /*
      * Max stream load timeout
@@ -553,13 +554,10 @@ public class Config extends ConfigBase {
     public static int query_colocate_join_memory_limit_penalty_factor = 8;
 
     /*
-     * co-location join is an experimental feature now.
-     * Set to false if you know what it is and really want to use it.
-     * if set to false, 'use_new_tablet_scheduler' must be set to false, because the new TabletScheduler
-     * can not handle tablet repair for colocate tables.
+     * Deprecated after 0.10
      */
     @ConfField
-    public static boolean disable_colocate_join = true;
+    public static boolean disable_colocate_join = false;
     /*
      * The default user resource publishing timeout.
      */
@@ -755,9 +753,7 @@ public class Config extends ConfigBase {
     @ConfField public static int schedule_slot_num_per_path = 2;
     
     /*
-     * set to true to use the TabletScheduler instead of the old CloneChecker.
-     * if set to true, 'disable_colocate_join' must be set to true.
-     * Because the new TabeltScheduler can not handle tablet repair for colocate tables.
+     * Deprecated after 0.10
      */
     @ConfField public static boolean use_new_tablet_scheduler = true;
 

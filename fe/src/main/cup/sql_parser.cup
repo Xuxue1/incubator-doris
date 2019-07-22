@@ -290,7 +290,7 @@ nonterminal RestoreStmt restore_stmt;
 nonterminal SelectList select_clause, select_list, select_sublist;
 nonterminal SelectListItem select_list_item, star_expr;
 nonterminal Expr expr, non_pred_expr, arithmetic_expr, timestamp_arithmetic_expr, expr_or_default;
-nonterminal LiteralExpr set_expr_or_default;
+nonterminal Expr set_expr_or_default;
 nonterminal ArrayList<Expr> expr_list, values, row_value, opt_values;
 nonterminal ArrayList<Expr> func_arg_list;
 nonterminal String select_alias, opt_table_alias;
@@ -405,7 +405,8 @@ nonterminal String keyword, ident, ident_or_text, variable_name, text_or_passwor
         charset_name_or_default, old_or_new_charset_name_or_default, opt_collate,
         collation_name_or_default, type_func_name_keyword, type_function_name, opt_file_format;
 
-nonterminal String opt_db, opt_partition_name, procedure_or_function, opt_default_value, opt_comment, opt_engine;
+nonterminal String opt_db, opt_partition_name, procedure_or_function, opt_comment, opt_engine;
+nonterminal ColumnDef.DefaultValue opt_default_value;
 nonterminal Boolean opt_if_exists, opt_if_not_exists;
 nonterminal Boolean opt_external;
 
@@ -1571,15 +1572,15 @@ column_definition_list ::=
 opt_default_value ::=
     /* Empty */
     {:
-        RESULT = null;
+        RESULT = ColumnDef.DefaultValue.NOT_SET;
     :}
     | KW_DEFAULT STRING_LITERAL:value
     {:
-        RESULT = value;
+        RESULT = new ColumnDef.DefaultValue(true, value);
     :}
     | KW_DEFAULT KW_NULL
     {:
-        RESULT = null;
+        RESULT = ColumnDef.DefaultValue.NULL_DEFAULT_VALUE;
     :}
     ;
 
@@ -2673,11 +2674,7 @@ isolation_types ::=
     ;
 
 set_expr_or_default ::=
-    literal:value
-    {:
-        RESULT = value;
-    :}
-    | KW_DEFAULT
+    KW_DEFAULT
     {:
         RESULT = null;
     :}
@@ -2692,6 +2689,10 @@ set_expr_or_default ::=
     | ident:name
     {:
         RESULT = new StringLiteral(name);
+    :}
+    | expr:expr
+    {:
+        RESULT = expr;
     :}
     ;
 

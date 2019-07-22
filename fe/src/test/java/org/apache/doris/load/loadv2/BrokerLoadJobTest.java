@@ -184,14 +184,14 @@ public class BrokerLoadJobTest {
             }
         };
 
-        Assert.assertEquals(1, brokerLoadJob.getTableNames().size());
-        Assert.assertEquals(true, brokerLoadJob.getTableNames().contains(tableName));
+        Assert.assertEquals(1, brokerLoadJob.getTableNamesForShow().size());
+        Assert.assertEquals(true, brokerLoadJob.getTableNamesForShow().contains(tableName));
     }
 
     @Test
     public void testExecuteJob(@Mocked MasterTaskExecutor masterTaskExecutor) {
         BrokerLoadJob brokerLoadJob = new BrokerLoadJob();
-        brokerLoadJob.executeJob();
+        brokerLoadJob.unprotectedExecuteJob();
 
         Map<Long, LoadTask> idToTasks = Deencapsulation.getField(brokerLoadJob, "idToTasks");
         Assert.assertEquals(1, idToTasks.size());

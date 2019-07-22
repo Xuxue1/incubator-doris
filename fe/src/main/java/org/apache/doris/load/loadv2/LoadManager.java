@@ -137,19 +137,22 @@ public class LoadManager implements Writable{
             checkLabelUsed(database.getId(), request.getLabel(), request.getCreate_timestamp());
             loadJob = new MiniLoadJob(database.getId(), request);
             createLoadJob(loadJob);
+            // Mini load job must be executed before release write lock.
+            // Otherwise, the duplicated request maybe get the transaction id before transaction of mini load is begun.
+            loadJob.unprotectedExecute();
         } catch (DuplicatedRequestException e) {
+            LOG.info(new LogBuilder(LogKey.LOAD_JOB, e.getDuplicatedRequestId())
+                             .add("msg", "the duplicated request returns the txn id "
+                                     + "which was created by the same mini load")
+                             .build());
             return dbIdToLabelToLoadJobs.get(database.getId()).get(request.getLabel())
                     .stream().filter(entity -> entity.getState() != JobState.CANCELLED).findFirst()
                     .get().getTransactionId();
-        } finally {
-            writeUnlock();
-        }
-
-        try {
-            loadJob.execute();
         } catch (UserException e) {
             loadJob.cancelJobWithoutCheck(new FailMsg(LOAD_RUN_FAIL, e.getMessage()), false);
             throw e;
+        } finally {
+            writeUnlock();
         }
 
         // The persistence of mini load must be the final step of create mini load.
@@ -272,7 +275,7 @@ public class LoadManager implements Writable{
         Catalog.getCurrentCatalog().getEditLog().logCreateLoadJob(loadJob);
     }
 
-    public void cancelLoadJob(CancelLoadStmt stmt) throws DdlException, MetaNotFoundException {
+    public void cancelLoadJob(CancelLoadStmt stmt) throws DdlException {
         Database db = Catalog.getInstance().getDb(stmt.getDbName());
         if (db == null) {
             throw new DdlException("Db does not exist. name: " + stmt.getDbName());
@@ -416,7 +419,7 @@ public class LoadManager implements Writable{
                     }
                     // add load job info
                     loadJobInfos.add(loadJob.getShowInfo());
-                } catch (DdlException | MetaNotFoundException e) {
+                } catch (DdlException e) {
                     continue;
                 }
             }
@@ -426,7 +429,7 @@ public class LoadManager implements Writable{
         }
     }
 
-    public void getLoadJobInfo(Load.JobInfo info) throws DdlException, MetaNotFoundException {
+    public void getLoadJobInfo(Load.JobInfo info) throws DdlException {
         String fullDbName = ClusterNamespace.getFullName(info.clusterName, info.dbName);
         info.dbName = fullDbName;
         Database database = checkDb(info.dbName);
@@ -510,7 +513,8 @@ public class LoadManager implements Writable{
                 if (loadJobOptional.isPresent()) {
                     LoadJob loadJob = loadJobOptional.get();
                     if (loadJob.getCreateTimestamp() == createTimestamp) {
-                        throw new DuplicatedRequestException("The request is duplicated with " + loadJob.getId());
+                        throw new DuplicatedRequestException(String.valueOf(loadJob.getId()),
+                                                             "The request is duplicated with " + loadJob.getId());
                     }
                     LOG.warn("Failed to add load job when label {} has been used.", label);
                     throw new LabelAlreadyUsedException(label);
